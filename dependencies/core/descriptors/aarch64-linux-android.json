@@ -1,0 +1,88 @@
+{
+  "abi": 1,
+  "android": {
+    "android_abi": "arm64-v8a",
+    "ar_sha256": "9e3e4d2fc7165641639e47cf69a2767a5bc59f93ca0762ff7799d6a5a6e18518",
+    "build_command": [
+      "cargo",
+      "build",
+      "-p",
+      "skvoz-core-abi",
+      "--target",
+      "aarch64-linux-android",
+      "--release",
+      "--locked",
+      "--offline"
+    ],
+    "build_environment": {
+      "AR_aarch64_linux_android": "/out/android-tools/sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar",
+      "CARGO_BUILD_JOBS": "1",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_RELEASE_DEBUG": "0",
+      "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER": "/out/android-tools/sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang",
+      "CC_aarch64_linux_android": "/out/android-tools/sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang"
+    },
+    "clang_sha256": "ad535f0b6fc303edba958b51636169ff0291c6e36463236c99ff8abcaa34247c",
+    "elf_machine": "AArch64",
+    "elf_notes": "\nDisplaying notes found in: .note.android.ident\n  Owner                Data size \tDescription\n  Android              0x00000084\tNT_VERSION (version)\n   description data: 1f 00 00 00 72 33 30 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 31 36 32 34 38 33 37 30 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 \n",
+    "linker": "Android (16134705, +pgo, +bolt, +lto, +mlgo, based on r574158c) clang version 21.0.0 (https://android.googlesource.com/toolchain/llvm-project 9f872551d3c681d06fd303b36f16ed5c274735eb)\nTarget: aarch64-unknown-linux-android31\nThread model: posix\nInstalledDir: /out/android-tools/ndk/android-ndk-r30/toolchains/llvm/prebuilt/linux-x86_64/bin\n",
+    "load_segment_alignments": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "minimum_api": 31,
+    "ndk": "/out/android-tools/sdk/ndk/30.0.16248370",
+    "ndk_archive_sha1": "5107f898313790e449e87eee2183d9a20602dee9",
+    "ndk_archive_sha256": "753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2",
+    "ndk_revision": "30.0.16248370",
+    "ndk_url": "https://dl.google.com/android/repository/android-ndk-r30-linux.zip",
+    "page_alignment": 16384,
+    "qualification": "candidate; target ELF inspection only; Android loader/JNI/runtime checks required",
+    "rust_distribution": "2025-12-11",
+    "rust_std_installed_manifest": "eb671c826b45ca60f3d2bd52b3503fd1838dc96091f5bb050ddb5b53efe0e5a5  lib/libaddr2line-2585b19c291c8e67.rlib\n33c30a30d0fec1415d0362a65c762aa958088efdc8c4f92631181f51bba9f0df  lib/libadler2-41185b6dfef5543f.rlib\nfc07db7e7c9924a12c8c77a46e61852d0a6c937566cff3f5f324e4265239f5e7  lib/liballoc-c8267efa504f6dd3.rlib\nf00de081cab4fbb5c7ae7c4b173774ba54b6989ddf29fb85d520402571cdfbdd  lib/libcfg_if-c8a658062223793c.rlib\n9b3b50a034e3c003674781f14563d436c474b52aaccdd189feb0f2d4263f7d87  lib/libcompiler_builtins-495c6be66f2b8fa6.rlib\nec356819ac96716f46e45dfa667ff5715b611e714cb5b4d24e5a3c849c8dede7  lib/libcore-ceb5aa3a118e10cc.rlib\nbb8519395fda0659656c069a02e862f25cc72c83cf34718a26bdce40b8d27bcc  lib/libgetopts-856a89bfcf374868.rlib\ndf3ef42096b99a661cc007537a7a11255bcff248475f0764af10e9773699cac9  lib/libgimli-fd56b67066a833ea.rlib\n884306f0201fa7f7e273655574b580f21bff6735d8ff0f1330abddae46864309  lib/libhashbrown-23440ada6bf397c3.rlib\n42839f0faadb4781e65e124fbb8b25cf7b115ac459843648c97bf9976dd0a915  lib/liblibc-0e78b02661670d1f.rlib\n6b9fc14ba1a4861f8b44fc3bd93619de45848bcdcdaa983977951bd02ffead17  lib/libmemchr-905bba0cf51738bc.rlib\n896600efab740611678331337872e0fbde5fe783d41e737851cf030fc2dacc84  lib/libminiz_oxide-66c20bc425016d3f.rlib\n8f76c724b211bb1271bc5b99094717a5f2a3e53fb6e60b8faee38eb747e79101  lib/libobject-98128d7578956906.rlib\n3ad34c3156971e9d58573fcfeeabda4ca8df471fda5c7930e6ebe2d66a409136  lib/libpanic_abort-95c6ad1c1c877091.rlib\nfcb0a2decd4479d63bd95f66fc5be4fb97d0fd0fdbe402f77cbb7eebe590e224  lib/libpanic_unwind-eb8737553311edbf.rlib\n808d2902ae8f4370bb148a71bd3f2a2313ff385fce16cc00e7745e6579774956  lib/libproc_macro-f0e7a1302bc629ef.rlib\n9b9defea753076d5725740e81499d2932b36c448b77dd60cc8e9c5da0f8dc806  lib/libprofiler_builtins-223fbd9ae39f1fc1.rlib\nf0afed991e6dc28523fb57ca878db0f4fc86613c357479d27765760ba96212bd  lib/librustc_demangle-0bc3783d06d21537.rlib\n71a0adefebdb569eafd526aec5ca1cd028bb887c4ccbc3f98bb9fe57130a1a78  lib/librustc_literal_escaper-14761c74a0b22ac1.rlib\n3b255a1f7d8f5a4a5b33956c735d6631b868fcdb55dc0de9645c9d2367c13cf3  lib/librustc_std_workspace_alloc-8b72b483d40542ad.rlib\n57c176e38030efc98f24044910c4c0e6419dcc671f1233f41eb80bb3d6ecefda  lib/librustc_std_workspace_core-6556b0fd82babb67.rlib\n84244869e75f15fdb53045d11fbf0d24aa034f6a77e8ef00a5246e47955fd654  lib/librustc_std_workspace_std-697129ecd0045f6c.rlib\n1eba35744f2e66745cb093ee2ea9d744f29f9a67604c3816c5d0cf10d849a918  lib/libstd-48a0fa61b15f5796.rlib\nda6494e62749e834e45b5b894100d22ffddf45cfb4319fd14a886fd9a327ae51  lib/libstd-48a0fa61b15f5796.so\nc00a4a81e4a6a7630030590b323ce37d4ff33c55963ebf4e0e4255c27c808cb3  lib/libstd_detect-e51f0c651776c4dc.rlib\n010e0932cefc68e6b527165035065c612b21edf1920f23c58bce77d6e887dd8a  lib/libsysroot-70e9a3886eb81b83.rlib\n884d4d09cc19f25bb4470460ad71437994712f54301fb266c82abed313d83ded  lib/libtest-15a2c6093d4a0583.rlib\nfebb612b0f52ff6606303b3179086e4cf491310be56740cd087ca5667e085782  lib/libunwind-d995e7bd2fec056f.rlib\n",
+    "rust_std_sha256": "ce6350bd43856c630773c93e40310989c6cb98a1178233c44e512a31761943d0",
+    "rust_std_url": "https://static.rust-lang.org/dist/2025-12-11/rust-std-1.92.0-aarch64-linux-android.tar.xz",
+    "rust_sysroot": "/out/android-tools/rust-android",
+    "target": "aarch64-linux-android"
+  },
+  "artifact_id": "5.0.0-abi1-aarch64-linux-android-e744cb6994588240b6e1348019f8466c5d05ade709e0f4a53c5033259122825a-430e6e799fba6af01d6b410e8d50742fbc337cb424e45ece1f7b063969ea7691",
+  "cargo": "cargo 1.92.0 (344c4567c 2025-10-21)",
+  "component": "skvoz-core",
+  "features": [
+    "nats"
+  ],
+  "kind": "shared-library",
+  "layout": {
+    "bounds_kind": "conservative; supplier compile-time actual<=bound assertions",
+    "event_bridge": 16384,
+    "manager_entry": 1024,
+    "manager_peer": 1024
+  },
+  "linker": "Android (16134705, +pgo, +bolt, +lto, +mlgo, based on r574158c) clang version 21.0.0 (https://android.googlesource.com/toolchain/llvm-project 9f872551d3c681d06fd303b36f16ed5c274735eb)\nTarget: aarch64-unknown-linux-android31\nThread model: posix\nInstalledDir: /out/android-tools/ndk/android-ndk-r30/toolchains/llvm/prebuilt/linux-x86_64/bin\n",
+  "lock_sha256": "81d8b14a98fdd048d52bee87fe16cb44c31a1b7f6d7ac5cf912c12a084a41ba7",
+  "owning_repository": "https://github.com/skvoz-project/skvoz-core",
+  "profile": "release",
+  "qualification": "candidate; see owning verification evidence",
+  "runtime_dependencies": [
+    "libdl.so",
+    "libm.so",
+    "libc.so"
+  ],
+  "rustc": "rustc 1.92.0 (ded5c06cf 2025-12-08)",
+  "rustc_verbose": "rustc 1.92.0 (ded5c06cf 2025-12-08)\nbinary: rustc\ncommit-hash: ded5c06cf21d2b93bffd5d884aa6e96934ee4234\ncommit-date: 2025-12-08\nhost: x86_64-unknown-linux-gnu\nrelease: 1.92.0\nLLVM version: 21.1.3\n",
+  "rustflags": "-C link-arg=-Wl,-z,max-page-size=16384 --sysroot /out/android-tools/rust-android",
+  "sdk_manifest_sha256": "430e6e799fba6af01d6b410e8d50742fbc337cb424e45ece1f7b063969ea7691",
+  "sha256": "e744cb6994588240b6e1348019f8466c5d05ade709e0f4a53c5033259122825a",
+  "soname": null,
+  "source": {
+    "repository": "https://github.com/skvoz-project/skvoz-core",
+    "revision": "a1b4bf8979869a7f681067ccb1e9326a58bf5c08",
+    "tree_sha256": "d0c0afd5d363b8f1dbd01931abf18569cb0b317e2e41ce33e1198f4a133224db"
+  },
+  "source_inputs_sha256": "d0c0afd5d363b8f1dbd01931abf18569cb0b317e2e41ce33e1198f4a133224db",
+  "target": "aarch64-linux-android",
+  "target_cpu": "Rust target default; no target-cpu override",
+  "version": "5.0.0"
+}

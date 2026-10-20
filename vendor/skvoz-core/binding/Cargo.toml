@@ -1,0 +1,25 @@
+[package]
+name = "skvoz-core-binding"
+version = "5.0.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+links = "skvoz_core"
+build = "build.rs"
+
+[features]
+default = []
+nats = []
+
+[dependencies]
+skvoz-core-contracts = { path = "../contracts", features = ["runtime", "codec"] }
+serde = "=1.0.228"
+serde_json = "=1.0.151"
+
+[build-dependencies]
+serde_json = "=1.0.151"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+

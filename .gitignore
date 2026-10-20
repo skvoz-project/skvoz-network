@@ -1,0 +1,12 @@
+target/
+**/temp/
+AGENTS.md
+**/.knowledge/
+.agents/
+.codex/
+.aws/
+*.log
+*.tmp
+
+# Local IDE workspace
+.idea/

@@ -1,0 +1,339 @@
+//! Public embedding profiles and runtime observations, independent of transport driving.
+pub const RUNTIME_FRAME_BYTES: usize = 16 * 1024;
+pub const TRANSPORT_PACKET_BYTES: usize = 48 + 16 + 12 + RUNTIME_FRAME_BYTES;
+pub const BROKER_PAYLOAD_BYTES: usize = 65588;
+use crate::{Aggregate, Event, ManagerConfig, ManagerError, PeerId, StreamKey};
+use std::{collections::BTreeSet, fmt, path::PathBuf, time::Duration};
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub enum Trust {
+    System,
+    ManagedCa(PathBuf),
+}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct Authentication {
+    pub username: String,
+    pub password: String,
+}
+impl fmt::Debug for Authentication {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Authentication([redacted])")
+    }
+}
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub enum Membership {
+    Allowlist(BTreeSet<PeerId>),
+    BrokerAuthorized,
+}
+#[derive(Clone)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct RuntimeConfig {
+    pub url: String,
+    /// Optional certificate identity override; dialing and SNI still follow `url`.
+    pub tls_server_name: Option<String>,
+    pub trust: Trust,
+    pub authentication: Authentication,
+    pub namespace: String,
+    pub id: PeerId,
+    pub membership: Membership,
+    pub initiate: Vec<PeerId>,
+    pub shards: usize,
+    pub subscription_capacity: usize,
+    pub join_capacity: usize,
+    pub client_capacity: usize,
+    pub max_incoming_per_turn: usize,
+    pub max_outgoing_per_turn: usize,
+    pub io_timeout: Duration,
+    pub heartbeat_interval: Duration,
+    pub peer_timeout: Duration,
+    pub join_timeout: Duration,
+    pub retry_initial: Duration,
+    pub retry_max: Duration,
+    pub max_retries: usize,
+    pub terminal_drain_timeout: Duration,
+}
+impl fmt::Debug for RuntimeConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RuntimeConfig")
+            .field("endpoint", &"[redacted]")
+            .field("authentication", &self.authentication)
+            .field("id", &self.id)
+            .field("shards", &self.shards)
+            .finish_non_exhaustive()
+    }
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub enum RuntimeError {
+    Config,
+    Random,
+    Tls,
+    Authentication,
+    Authorization,
+    Timeout,
+    Transport,
+    Protocol,
+    UnsupportedVersion,
+    Admission,
+    PeerUnavailable,
+    StaleKey,
+    IdentityExhausted,
+    TerminalDrainTimeout,
+    RetryExhausted,
+    Manager(ManagerError),
+}
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Core runtime error: {self:?}")
+    }
+}
+impl std::error::Error for RuntimeError {}
+impl From<crate::ProtocolError> for RuntimeError {
+    fn from(_: crate::ProtocolError) -> Self {
+        Self::Protocol
+    }
+}
+impl From<ManagerError> for RuntimeError {
+    fn from(e: ManagerError) -> Self {
+        if e == ManagerError::Admission {
+            Self::Admission
+        } else {
+            Self::Manager(e)
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub enum Lifecycle {
+    Connecting,
+    Ready,
+    Recovering,
+    Failed,
+    ShuttingDown,
+    Closed,
+}
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct RuntimeKey {
+    pub epoch: u128,
+    pub incarnation: u64,
+    pub stream: StreamKey,
+}
+#[derive(Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct RuntimeEvent {
+    pub key: RuntimeKey,
+    pub event: Event,
+}
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct Counters {
+    pub joins: u64,
+    pub replacements: u64,
+    pub peer_timeouts: u64,
+    pub shard_failures: u64,
+    pub shard_overflows: u64,
+    pub invalid_input: u64,
+    pub retries: u64,
+    pub join_overflows: u64,
+    /// Successful DATA publish commands; payload bytes exclude all framing.
+    pub data_frames_published: u64,
+    pub data_payload_bytes_published: u64,
+    /// Payload sizes: <1500, 1500..8192, 8192..16384, exactly16384, >16384.
+    pub data_frame_size_bins: [u64; 5],
+    pub window_frames_published: u64,
+    pub socket_flushes_completed: u64,
+    /// Wall time in output batches including publish/flush waits; not CPU time.
+    pub output_elapsed_ns: u64,
+}
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct DeliveryStatus {
+    pub limit_bytes: u64,
+    pub limit_records: u64,
+    pub receive_promised_bytes: u64,
+    pub receive_promised_records: u64,
+    pub send_flight_bytes: u64,
+    pub send_flight_records: u64,
+    pub quarantined_send_bytes: u64,
+    pub quarantined_receive_bytes: u64,
+}
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct StreamDiagnostics {
+    pub application: crate::FlowObservation,
+    pub waiting_delivery: bool,
+    pub waiting_shared_flight: bool,
+    pub waiting_control_ms: Option<u64>,
+    pub scheduler_eligible: bool,
+}
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct PeerStatus {
+    pub generation: u128,
+    pub pair_token: u128,
+    pub incarnation: u64,
+    pub sent_frames: u64,
+    pub received_frames: u64,
+    pub handshake_nonce: u128,
+    /// Continuous delivery state; bytes include the conservative envelope cost.
+    pub delivery_epoch: u64,
+    pub granted_bytes: u64,
+    pub sent_bytes: u64,
+    pub applied_bytes: u64,
+    pub available_records: u64,
+    pub sent_controls: u64,
+    pub received_controls: u64,
+    pub waiting_delivery: bool,
+    pub waiting_control: bool,
+    pub ready: bool,
+}
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "codec", derive(serde::Serialize, serde::Deserialize))]
+pub struct Status {
+    pub lifecycle: Lifecycle,
+    pub resources: Aggregate,
+    pub active_peers: usize,
+    pub membership_slots: usize,
+    pub connections: usize,
+    pub attempt: usize,
+    pub last_error: Option<RuntimeError>,
+    pub counters: Counters,
+    pub configured_transport_payload_bound: usize,
+}
+fn valid_token(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 64
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+impl RuntimeConfig {
+    /// Bounded embedding profile. All peers in the namespace share shard count.
+    pub fn new(
+        url: impl Into<String>,
+        trust: Trust,
+        authentication: Authentication,
+        namespace: impl Into<String>,
+        id: PeerId,
+        membership: Membership,
+    ) -> Self {
+        Self {
+            url: url.into(),
+            tls_server_name: None,
+            trust,
+            authentication,
+            namespace: namespace.into(),
+            id,
+            membership,
+            initiate: Vec::new(),
+            shards: 8,
+            subscription_capacity: 128,
+            join_capacity: 128,
+            client_capacity: 16,
+            max_incoming_per_turn: 64,
+            max_outgoing_per_turn: 32,
+            io_timeout: Duration::from_secs(2),
+            heartbeat_interval: Duration::from_secs(1),
+            peer_timeout: Duration::from_secs(5),
+            join_timeout: Duration::from_secs(10),
+            retry_initial: Duration::from_millis(200),
+            retry_max: Duration::from_secs(5),
+            max_retries: 8,
+            terminal_drain_timeout: Duration::from_secs(10),
+        }
+    }
+    /// Validate an embedding profile without I/O; returns its transport payload bound.
+    pub fn validate_profile(&self, limits: ManagerConfig) -> Result<usize, RuntimeError> {
+        let address = if self.url.contains("://") {
+            self.url.clone()
+        } else {
+            format!("nats://{}", self.url)
+        };
+        let address: url::Url = address.parse().map_err(|_| RuntimeError::Config)?;
+        if self
+            .tls_server_name
+            .as_deref()
+            .is_some_and(|name| identity(name).is_err())
+            || !matches!(address.scheme(), "nats" | "tls" | "ws" | "wss")
+            || !address.username().is_empty()
+            || address.password().is_some()
+            || self.namespace.len() > 256
+            || self.namespace.split('.').any(|t| !valid_token(t))
+            || self.authentication.username.is_empty()
+            || self.authentication.password.is_empty()
+            || !(1..=32).contains(&self.shards)
+            || !(1..=65536).contains(&self.subscription_capacity)
+            || !(1..=65536).contains(&self.join_capacity)
+            || !(1..=65536).contains(&self.client_capacity)
+            || !(1..=256).contains(&self.max_incoming_per_turn)
+            || !(1..=256).contains(&self.max_outgoing_per_turn)
+            || self.io_timeout.is_zero()
+            || self.heartbeat_interval.is_zero()
+            || self.peer_timeout <= self.heartbeat_interval
+            || self.join_timeout <= self.io_timeout
+            || self.retry_initial.is_zero()
+            || self.retry_max < self.retry_initial
+            || self.max_retries == 0
+            || self.terminal_drain_timeout.is_zero()
+            || [
+                self.io_timeout,
+                self.heartbeat_interval,
+                self.peer_timeout,
+                self.join_timeout,
+                self.retry_initial,
+                self.retry_max,
+                self.terminal_drain_timeout,
+            ]
+            .iter()
+            .any(|d| *d > Duration::from_secs(86400))
+            || self.max_retries > 1024
+            || limits.max_peers > 128
+            || limits.stream.max_frame as usize > RUNTIME_FRAME_BYTES
+            || limits.stream.max_metadata > 512
+            || self.initiate.len() > limits.max_peers
+            || self.initiate.contains(&self.id)
+        {
+            return Err(RuntimeError::Config);
+        }
+        if let Membership::Allowlist(p) = &self.membership
+            && (p.len() > limits.max_peers
+                || p.contains(&self.id)
+                || self.initiate.iter().any(|id| !p.contains(id)))
+        {
+            return Err(RuntimeError::Config);
+        }
+        self.subscription_capacity
+            .checked_mul(2)
+            .and_then(|n| n.checked_mul(self.shards))
+            .and_then(|n| n.checked_add(self.join_capacity))
+            .and_then(|n| n.checked_add(self.client_capacity.checked_mul(self.shards + 1)?))
+            .and_then(|n| n.checked_add((self.shards + 1).checked_mul(4)?))
+            .and_then(|n| n.checked_mul(TRANSPORT_PACKET_BYTES + 1024))
+            .and_then(|n| {
+                n.checked_add(
+                    limits
+                        .max_peers
+                        .checked_mul(crate::TRANSPORT_DELIVERY_STATE_BYTES)?,
+                )
+            })
+            // Two exact-source subscriptions per peer share the existing lane
+            // packet queues. Bound subject, handler and owned-handle metadata.
+            .and_then(|n| n.checked_add(limits.max_peers.checked_mul(2 * 1024)?))
+            .ok_or(RuntimeError::Config)
+    }
+}
+
+pub fn identity(name: &str) -> Result<rustls_pki_types::ServerName<'static>, RuntimeError> {
+    if name.is_empty()
+        || name.len() > 253
+        || !name.is_ascii()
+        || name.contains(['%', '/', '[', ']'])
+    {
+        return Err(RuntimeError::Config);
+    }
+    rustls_pki_types::ServerName::try_from(name.to_owned()).map_err(|_| RuntimeError::Config)
+}

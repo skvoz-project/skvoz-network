@@ -1,0 +1,20 @@
+[package]
+name = "skvoz-network-client"
+version = "0.7.0"
+description = "Bounded host enrollment through a pinned Network runtime executable"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+skvoz-network-contracts = { path = "../contracts" }
+skvoz-network-native = { path = "../native" }
+serde_json = "=1.0.151"
+
+[lints]
+workspace = true
+
+[[test]]
+name = "process"
+harness = false

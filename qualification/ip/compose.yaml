@@ -1,0 +1,147 @@
+x-common: &common
+  image: ${SKVOZ_IP_IMAGE:?set prepared fixture image digest}
+  pull_policy: never
+  entrypoint: [/fixture/bin/ip_topology]
+  user: "0:0"
+  init: true
+  read_only: true
+  restart: "no"
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  cpuset: "0-3"
+  ulimits:
+    core: {soft: 0, hard: 0}
+    nofile: {soft: 8192, hard: 8192}
+  environment: &fixture-environment
+    SKVOZ_KERNEL_FIXTURE: "1"
+    SKVOZ_HELPER_EXECUTABLE: /opt/skvoz-native/bin/skvoz-network-helper
+  tmpfs:
+    - /run:rw,nosuid,nodev,size=64m,mode=0755
+    - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+  volumes: &inputs
+    - inputs:/fixture/input:ro
+    - ${SKVOZ_IP_PROBE:?set prepared probe path}:/fixture/bin/ip_topology:ro
+    - ${SKVOZ_NATIVE_ROOT:?set verified extracted bundle path}:/opt/skvoz-native:ro
+
+x-kernel: &kernel
+  net.ipv4.ipfrag_high_thresh: "4194304"
+  net.ipv4.ipfrag_time: "15"
+  net.ipv6.ip6frag_high_thresh: "4194304"
+  net.ipv6.ip6frag_time: "15"
+  net.netfilter.nf_conntrack_frag6_high_thresh: "4194304"
+  net.netfilter.nf_conntrack_frag6_timeout: "15"
+
+x-healthy: &healthy
+  test: [CMD, test, -f, /run/topology/ready]
+  interval: 1s
+  timeout: 1s
+  retries: 30
+
+services:
+  prepare:
+    <<: *common
+    command: [prepare]
+    network_mode: none
+    cpus: 4
+    mem_limit: 3g
+    memswap_limit: 3g
+    pids_limit: 128
+    volumes:
+      - inputs:/outputs
+      - ${SKVOZ_IP_PROBE:?set prepared probe path}:/fixture/bin/ip_topology:ro
+      - ${SKVOZ_NATIVE_ROOT:?set verified extracted bundle path}:/opt/skvoz-native:ro
+    blkio_config:
+      device_read_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 8388608}]
+      device_write_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 2097152}]
+  endpoint:
+    <<: *common
+    command: [endpoint]
+    depends_on:
+      prepare: {condition: service_completed_successfully}
+    cpus: 1
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 64
+    cap_add: [NET_ADMIN, NET_BIND_SERVICE, SETPCAP]
+    volumes:
+      - inputs:/fixture/input:ro
+      - ${SKVOZ_IP_PROBE:?set prepared probe path}:/fixture/bin/ip_topology:ro
+      - ${SKVOZ_NATIVE_ROOT:?set verified extracted bundle path}:/opt/skvoz-native:ro
+      - ${SKVOZ_NATS_BINARY:?set exact NATS 2.15.1 executable}:/usr/local/bin/nats-server:ro
+    networks:
+      underlay: {ipv4_address: 198.18.0.2, ipv6_address: '2001:db8:800::2'}
+      egress: {ipv4_address: 198.19.0.30, ipv6_address: '2001:db8:900::30'}
+    healthcheck: *healthy
+    blkio_config:
+      device_read_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 2097152}]
+      device_write_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 524288}]
+  server:
+    <<: *common
+    command: [server]
+    entrypoint: [/bin/sh, /fixture/server-supervisor.sh]
+    environment:
+      <<: *fixture-environment
+      SKVOZ_IP_WORK_END: ${SKVOZ_IP_WORK_END:?set original qualifier work cutoff}
+    volumes:
+      - inputs:/fixture/input:ro
+      - ${SKVOZ_IP_PROBE:?set prepared probe path}:/fixture/bin/ip_topology:ro
+      - ${SKVOZ_NATIVE_ROOT:?set verified extracted bundle path}:/opt/skvoz-native:ro
+      - ./server-supervisor.sh:/fixture/server-supervisor.sh:ro
+    depends_on:
+      endpoint: {condition: service_healthy}
+    cpus: 1.5
+    mem_limit: 1g
+    memswap_limit: 1g
+    pids_limit: 96
+    cap_add: [NET_ADMIN, KILL, SETUID, SETGID, SETPCAP]
+    devices: [/dev/net/tun:/dev/net/tun]
+    sysctls:
+      <<: *kernel
+      net.ipv4.ip_forward: "1"
+      net.ipv6.conf.all.forwarding: "1"
+    tmpfs:
+      - /run:rw,nosuid,nodev,size=64m,mode=0755
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+      - /var/lib/skvoz-network:rw,nosuid,nodev,size=16m,mode=0700
+    networks:
+      underlay: {ipv4_address: 198.18.0.20, ipv6_address: '2001:db8:800::20'}
+      egress: {ipv4_address: 198.19.0.20, ipv6_address: '2001:db8:900::20'}
+    healthcheck: *healthy
+    blkio_config:
+      device_read_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 3145728}]
+      device_write_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 786432}]
+  client:
+    <<: *common
+    command: [client]
+    depends_on:
+      server: {condition: service_healthy}
+    cpus: 1.5
+    mem_limit: 1g
+    memswap_limit: 1g
+    pids_limit: 96
+    cap_add: [NET_ADMIN, KILL, SETUID, SETGID, SETPCAP, NET_RAW, NET_BIND_SERVICE]
+    devices: [/dev/net/tun:/dev/net/tun]
+    sysctls: *kernel
+    tmpfs:
+      - /run:rw,nosuid,nodev,size=64m,mode=0755
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+      - /var/lib/skvoz-network-helper:rw,nosuid,nodev,size=16m,mode=0700
+    networks:
+      underlay: {ipv4_address: 198.18.0.10, ipv6_address: '2001:db8:800::10'}
+    blkio_config:
+      device_read_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 3145728}]
+      device_write_bps: [{path: '${SKVOZ_BLOCK_DEVICE:?set backing device}', rate: 786432}]
+
+networks:
+  underlay:
+    internal: true
+    enable_ipv6: true
+    ipam:
+      config: [{subnet: 198.18.0.0/24}, {subnet: '2001:db8:800::/64'}]
+  egress:
+    internal: true
+    enable_ipv6: true
+    ipam:
+      config: [{subnet: 198.19.0.0/24}, {subnet: '2001:db8:900::/64'}]
+volumes:
+  inputs: {}

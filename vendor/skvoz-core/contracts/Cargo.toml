@@ -1,0 +1,18 @@
+[package]
+name = "skvoz-core-contracts"
+version = "5.0.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+
+[features]
+default = []
+runtime = ["dep:url", "dep:rustls-pki-types"]
+codec = ["dep:serde", "dep:serde_json"]
+
+[dependencies]
+serde = { version = "=1.0.228", features = ["derive"], optional = true }
+url = { version = "=2.5.8", optional = true }
+rustls-pki-types = { version = "=1.15.1", optional = true }
+serde_json = { version = "=1.0.151", optional = true }

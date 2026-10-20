@@ -1,0 +1,12 @@
+[package]
+name = "skvoz-core-tls"
+version = "5.0.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+
+[dependencies]
+skvoz-core-contracts = { path = "../contracts", features = ["runtime"] }
+async-nats = { version = "=0.50.0", default-features = false, features = ["ring"] }
+rustls-native-certs = "=0.8.4"

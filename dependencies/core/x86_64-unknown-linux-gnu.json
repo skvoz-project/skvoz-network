@@ -1,0 +1,22 @@
+{
+  "abi": 1,
+  "artifact": {
+    "sha256": "18fae3e35f2430a6680e739955977693c37d0e7e987e023291737e94b5d9bab8",
+    "url": "https://github.com/skvoz-project/skvoz-core/releases/download/core-v5.0.0-a1b4bf8979869a7f681067ccb1e9326a58bf5c08/skvoz-core-5.0.0-x86_64-unknown-linux-gnu.tar.gz"
+  },
+  "artifact_id": "5.0.0-abi1-linux-amd64-gnu-7331252bcb653507e6663eadc8fbb862f57f41d10d6db9dbf2cb73940dbec430-430e6e799fba6af01d6b410e8d50742fbc337cb424e45ece1f7b063969ea7691",
+  "artifact_manifest_sha256": "e43071d9fae57c3c640778e73b6cd59e8e3b40788edfd4dab62afa3f51835d78",
+  "component": "skvoz-core",
+  "kind": "shared-library",
+  "library": "lib/libskvoz_core.so",
+  "manifest": "artifact.json",
+  "release_tag": "core-v5.0.0-a1b4bf8979869a7f681067ccb1e9326a58bf5c08",
+  "schema": 1,
+  "sdk_manifest_sha256": "430e6e799fba6af01d6b410e8d50742fbc337cb424e45ece1f7b063969ea7691",
+  "sha256": "7331252bcb653507e6663eadc8fbb862f57f41d10d6db9dbf2cb73940dbec430",
+  "source_inputs_sha256": "d0c0afd5d363b8f1dbd01931abf18569cb0b317e2e41ce33e1198f4a133224db",
+  "source_revision": "a1b4bf8979869a7f681067ccb1e9326a58bf5c08",
+  "supplier": "https://github.com/skvoz-project/skvoz-core",
+  "target": "x86_64-unknown-linux-gnu",
+  "version": "5.0.0"
+}

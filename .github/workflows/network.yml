@@ -1,0 +1,48 @@
+name: Network
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: network-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  supplier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build Linux supplier from pinned Core release
+        env:
+          NETWORK_OUTPUT: ${{ runner.temp }}/network-output
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ci-supplier.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: network-release
+          path: ${{ runner.temp }}/network-output/release/
+          if-no-files-found: error
+  publish:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: supplier
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: network-release
+          path: ${{ runner.temp }}/network-release
+      - name: Publish immutable owning-commit release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/publish-release.sh "$RUNNER_TEMP/network-release"

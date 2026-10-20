@@ -40,7 +40,17 @@ container '
   cargo test --release --locked -p skvoz-network-artifact
   cargo build --release --locked -p skvoz-network-artifact
 '
-"$NETWORK_OUTPUT/target/release/core-release" fetch x86_64-unknown-linux-gnu "$NETWORK_OUTPUT/core"
+# The reviewed pin fixes all archive bytes; build.rs/binding check the Core interface.
+pin=dependencies/core/x86_64-unknown-linux-gnu.json
+url=$(jq -er '.artifact.url' "$pin")
+sha256=$(jq -er '.artifact.sha256' "$pin")
+curl --fail --location --proto '=https' --proto-redir '=https' --max-time 120 \
+  --max-filesize 268435456 "$url" --output "$NETWORK_OUTPUT/core.tar.gz"
+printf '%s  %s\n' "$sha256" "$NETWORK_OUTPUT/core.tar.gz" | sha256sum --check --strict -
+mkdir -m 755 "$NETWORK_OUTPUT/core" "$NETWORK_OUTPUT/core/lib"
+tar -xzf "$NETWORK_OUTPUT/core.tar.gz" -C "$NETWORK_OUTPUT/core" --no-same-owner \
+  --no-same-permissions -- ./artifact.json ./lib/libskvoz_core.so
+chmod 644 "$NETWORK_OUTPUT/core/artifact.json" "$NETWORK_OUTPUT/core/lib/libskvoz_core.so"
 container '
   export SKVOZ_CORE_ARTIFACT=/out/core LD_LIBRARY_PATH=/out/core/lib
   cargo build --release --locked -p skvoz-network --features linux-runtime

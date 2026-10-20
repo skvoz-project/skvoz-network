@@ -21,26 +21,18 @@ case "$profile" in
     for package in contracts client native; do
       mkdir "$sdk/$package"
       cp -R "$root/$package/src" "$sdk/$package/"
-      for extra in tests README.md; do
-        [ ! -e "$root/$package/$extra" ] || cp -R "$root/$package/$extra" "$sdk/$package/"
-      done
       sed -e 's/^edition.workspace = true$/edition = "2024"/' \
           -e 's/^rust-version.workspace = true$/rust-version = "1.92"/' \
           -e 's/^license.workspace = true$/license = "MIT"/' \
           -e 's/^\[lints\]$/[lints.rust]/' \
           -e 's/^workspace = true$/unsafe_code = "forbid"/' \
+          -e '/^\[\[test\]\]/,$d' \
           "$root/$package/Cargo.toml" > "$sdk/$package/Cargo.toml"
     done
     mkdir -p "$sdk/vendor/skvoz-core"
     cp -R "$root/vendor/skvoz-core/contracts" "$sdk/vendor/skvoz-core/"
     cp "$root/vendor/skvoz-core/LICENSE" "$sdk/vendor/skvoz-core/"
     cp "$root/LICENSE" "$root/Cargo.lock" "$sdk/"
-    # These owned package documents refer to canonical supplier documentation.
-    for package in contracts native; do
-      sed 's|](../docs/network-runtime.md)|](https://github.com/skvoz-project/skvoz-network/blob/main/docs/network-runtime.md)|g' \
-        "$sdk/$package/README.md" > "$staging/readme"
-      mv "$staging/readme" "$sdk/$package/README.md"
-    done
     cat > "$sdk/README.md" <<'README'
 # Network Desktop SDK
 
@@ -58,9 +50,42 @@ Engine, NATS, Core binding и TLS adapter в этот профиль не вкл
 README
     ;;
   portable-supplier)
-    git -C "$root" ls-files --cached --others --exclude-standard -z > "$staging/inputs"
-    tar -C "$root" --null --no-recursion -T "$staging/inputs" -cf "$staging/source.tar"
-    tar -C "$sdk" --no-same-owner -xf "$staging/source.tar"
+    # Only Android's production Cargo closure; no foreign tests or supplier tools.
+    cp "$root/Cargo.lock" "$root/build.rs" "$root/LICENSE" "$sdk/"
+    cp -R "$root/src" "$sdk/"
+    rm -rf -- "$sdk/src/bin"
+    sed -e 's/^members = .*/members = [".", "contracts", "native"]/' \
+        -e '/^\[\[bin\]\]/,/^\[dependencies\]/{ /^\[dependencies\]/!d; }' \
+        "$root/Cargo.toml" > "$sdk/Cargo.toml"
+    for package in contracts native; do
+      mkdir "$sdk/$package"
+      cp "$root/$package/Cargo.toml" "$sdk/$package/"
+      cp -R "$root/$package/src" "$sdk/$package/"
+    done
+    mkdir -p "$sdk/vendor/async-nats" "$sdk/dependencies/core/descriptors"
+    cp -R "$root/vendor/skvoz-core" "$sdk/vendor/"
+    cp -R "$root/vendor/async-nats/src" "$sdk/vendor/async-nats/"
+    for file in Cargo.toml README.md LICENSE PATCHES.md; do
+      cp "$root/vendor/async-nats/$file" "$sdk/vendor/async-nats/"
+    done
+    for target in aarch64-linux-android x86_64-linux-android; do
+      cp "$root/dependencies/core/$target.json" "$sdk/dependencies/core/"
+      cp "$root/dependencies/core/descriptors/$target.json" "$sdk/dependencies/core/descriptors/"
+    done
+    cat > "$sdk/README.md" <<'README'
+# Network Android source SDK
+
+Исходный профиль `portable-supplier` [skvoz-network](https://github.com/skvoz-project/skvoz-network)
+0.7.0 предназначен для явной Android JNI supplier сборки. Он содержит только
+Network runtime/contracts/native, patched async-nats, полный проверяемый Core
+SDK 5.0.0, Android Core pins/descriptors, лицензии и закреплённый Cargo graph.
+Готовые Core libraries передаются отдельно через `SKVOZ_CORE_ARTIFACT`.
+
+Состав и версии закреплены в `sdk.json`, `source-inputs.sha256` и `Cargo.lock`.
+Тесты и инструменты остаются в owning репозитории. Обычная сборка APK получает
+готовые JNI/Core outputs по [контракту артефактов](https://github.com/skvoz-project/skvoz-network/blob/main/docs/artifacts.md).
+Network и Core сохраняют MIT лицензии; patched async-nats — Apache-2.0.
+README
     ;;
   *) echo 'unsupported source SDK profile' >&2; exit 2 ;;
 esac
@@ -84,7 +109,7 @@ cat > "$sdk/sdk.json" <<JSON
 JSON
 (cd "$sdk" && find . -type f -printf '%P\n' | LC_ALL=C sort) > "$staging/files"
 archive=$output/skvoz-network-sdk-0.7.0-$profile.tar.gz
-tar -C "$sdk" --no-recursion --verbatim-files-from -T "$staging/files" --sort=name --mtime='UTC 2026-10-19' --owner=0 --group=0 --numeric-owner --mode='u+rw,go+r,go-w,a+X' -czf "$archive"
+tar -C "$sdk" --no-recursion --verbatim-files-from -T "$staging/files" --sort=name --mtime='UTC 2026-10-19' --owner=0 --group=0 --numeric-owner --mode=0644 -czf "$archive"
 cp "$sdk/sdk.json" "$output/sdk.json"
 sha256sum -- "$archive" > "$output/archive.sha256"
 cat "$output/archive.sha256"

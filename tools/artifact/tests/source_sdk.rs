@@ -1,4 +1,4 @@
-//! Exercise the real portable exporter, including root without CAP_CHOWN in CI.
+//! Exercise the real portable production exporter under root without CAP_CHOWN.
 use serde_json::Value;
 use std::{collections::BTreeSet, fs, os::unix::fs::PermissionsExt, path::Path, process::Command};
 
@@ -20,7 +20,7 @@ fn hash(path: &Path) -> String {
 }
 
 #[test]
-fn portable_export_preserves_source_and_normalizes_archive_ownership() {
+fn portable_export_has_exact_production_closure_and_normalized_ownership() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let scratch = std::path::PathBuf::from(output(Command::new("mktemp").arg("-d")).trim());
     let git = |args: &[&str]| output(Command::new("git").arg("-C").arg(&repo).args(args));
@@ -33,6 +33,25 @@ fn portable_export_preserves_source_and_normalizes_archive_ownership() {
     ])
     .split('\0')
     .filter(|s| !s.is_empty())
+    .filter(|path| {
+        ["Cargo.toml", "Cargo.lock", "build.rs", "LICENSE"].contains(path)
+            || path.starts_with("src/") && !path.starts_with("src/bin/")
+            || ["contracts", "native"].iter().any(|package| {
+                *path == format!("{package}/Cargo.toml")
+                    || path.starts_with(&format!("{package}/src/"))
+            })
+            || path.starts_with("vendor/skvoz-core/")
+            || path.starts_with("vendor/async-nats/src/")
+            || ["Cargo.toml", "README.md", "LICENSE", "PATCHES.md"]
+                .iter()
+                .any(|name| *path == format!("vendor/async-nats/{name}"))
+            || ["aarch64-linux-android", "x86_64-linux-android"]
+                .iter()
+                .any(|target| {
+                    *path == format!("dependencies/core/{target}.json")
+                        || *path == format!("dependencies/core/descriptors/{target}.json")
+                })
+    })
     .map(str::to_owned)
     .collect();
     let revision = if git(&["status", "--porcelain"]).is_empty() {
@@ -94,21 +113,39 @@ fn portable_export_preserves_source_and_normalizes_archive_ownership() {
         let (digest, name) = line.split_once('\t').unwrap();
         assert!(actual.insert(name.to_owned()));
         assert_eq!(digest, hash(&extracted.join(name)));
-        assert_eq!(
-            fs::read(extracted.join(name)).unwrap(),
-            fs::read(repo.join(name)).unwrap()
-        );
-        let mode = fs::metadata(repo.join(name)).unwrap().permissions().mode();
+        if !["Cargo.toml", "README.md"].contains(&name) {
+            assert_eq!(
+                fs::read(extracted.join(name)).unwrap(),
+                fs::read(repo.join(name)).unwrap()
+            );
+        }
         assert_eq!(
             fs::metadata(extracted.join(name))
                 .unwrap()
                 .permissions()
                 .mode()
                 & 0o777,
-            if mode & 0o111 == 0 { 0o644 } else { 0o755 }
+            0o644
         );
+        assert!(!name.split('/').any(|part| {
+            [
+                "tests",
+                "helper",
+                "qualification",
+                "ffi",
+                "tools",
+                "scripts",
+                ".github",
+            ]
+            .contains(&part)
+        }));
     }
+    let mut inputs = inputs;
+    inputs.insert("README.md".into());
     assert_eq!(actual, inputs);
+    let cargo = fs::read_to_string(extracted.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("members = [\".\", \"contracts\", \"native\"]"));
+    assert!(!cargo.contains("[[bin]]"));
     let names: BTreeSet<_> = output(Command::new("tar").arg("-tzf").arg(&archive))
         .lines()
         .map(str::to_owned)
@@ -123,5 +160,63 @@ fn portable_export_preserves_source_and_normalizes_archive_ownership() {
             .unwrap(),
         hash(&archive)
     );
+    fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn desktop_export_does_not_distribute_foreign_test_targets() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let scratch = std::path::PathBuf::from(output(Command::new("mktemp").arg("-d")).trim());
+    output(
+        Command::new("sh")
+            .arg(repo.join("scripts/export-source-sdk.sh"))
+            .arg("desktop-host")
+            .arg(scratch.join("output")),
+    );
+    let archive = scratch.join("output/skvoz-network-sdk-0.7.0-desktop-host.tar.gz");
+    let names = output(Command::new("tar").arg("-tzf").arg(&archive));
+    assert!(!names.lines().any(|path| path.split('/').any(|part| {
+        [
+            "tests",
+            "bin",
+            "helper",
+            "qualification",
+            "ffi",
+            "tools",
+            "scripts",
+            ".github",
+        ]
+        .contains(&part)
+    })));
+    for path in names.lines() {
+        assert!(
+            [
+                "LICENSE",
+                "Cargo.lock",
+                "README.md",
+                "sdk.json",
+                "source-inputs.sha256",
+                "vendor/skvoz-core/LICENSE"
+            ]
+            .contains(&path)
+                || [
+                    "contracts",
+                    "client",
+                    "native",
+                    "vendor/skvoz-core/contracts"
+                ]
+                .iter()
+                .any(|package| path == format!("{package}/Cargo.toml")
+                    || path.starts_with(&format!("{package}/src/")))
+        );
+    }
+    let manifest = output(
+        Command::new("tar")
+            .arg("-xOzf")
+            .arg(&archive)
+            .arg("client/Cargo.toml"),
+    );
+    assert!(!manifest.contains("[[test]]"));
+    assert!(!manifest.contains(".workspace"));
     fs::remove_dir_all(scratch).unwrap();
 }

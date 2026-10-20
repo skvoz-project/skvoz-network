@@ -30,20 +30,45 @@ rust-toolchain и `native-profile.json` с точными toolchain/flags/profil
 Поставщик выполняет inventory в owning Git checkout: учитываются cached и
 untracked public inputs, существующие Git ignores исключают private material. `source.repository`
 указывает Network, `source.revision` может быть null только у локального
-незакоммиченного кандидата; выпуск фиксирует owning commit. Объект `source`
-содержит строго `repository`, `revision` и `tree_sha256`; дополнительные поля
-отклоняются потребителем.
+незакоммиченного кандидата; выпуск фиксирует owning commit. Поставщик формирует `source`
+с полями `repository`, `revision` и `tree_sha256`.
 
 Consumer lock schema1 содержит ту же identity и `artifact:{url,sha256}`.
 Относительный `file:` locator разрешается относительно каталога lock, независимо
 от текущего рабочего каталога. Например, root `product-native-lock.json` использует
 `file:artifacts/native/network-native.tar.gz`; lock `artifacts/network.lock.json`
 для того же архива использует `file:native/network-native.tar.gz`.
-Consumer сначала проверяет SHA256 всего архива, затем schema/tuple, digest
-каждого файла, ожидаемые пути и mode. Разрешены только обычные файлы: без links,
-absolute paths, `..`, duplicate paths и duplicate JSON fields. Manifest не более
-64KiB, не более64 файлов и 256MiB суммарного распакованного содержимого. Missing,
-hash/ABI/target mismatch останавливают packaging без source fallback.
+Consumer проверяет закреплённый SHA256 всего архива до распаковки, затем
+извлекает необходимые продукту файлы стандартным `tar`. Проверка хеша фиксирует
+все bytes выбранного выпуска. Состав, manifest, target/ABI и runtime closure
+проверяются поставщиком при сборке выпуска; продукт сохраняет собственные
+проверки связывания, загрузки и версий. Ошибки останавливают packaging без source fallback.
+
+## Получение готового native bundle
+
+Обычная сборка получает архив по точному URL из собственного lock, сверяет его
+закреплённый SHA256 и извлекает необходимые файлы стандартными средствами:
+
+```sh
+curl --fail --location --proto '=https' --proto-redir '=https' --max-time 120 \
+  "$NETWORK_URL" --output network.tar.gz
+printf '%s  %s\n' "$NETWORK_SHA256" network.tar.gz | sha256sum --check -
+mkdir native
+tar -xzf network.tar.gz -C native --no-same-owner --no-same-permissions \
+  -- bin/skvoz-network-runtime bin/skvoz-network-helper lib/libskvoz_core.so
+```
+
+Значения URL/SHA256 берутся из просмотренного lock, а не из автоматически
+выбранного `latest`. Для упаковки helper продукт также извлекает нужные
+`resources/` и `licenses/`, сохраняет исходный manifest и нормализует права
+executables0755/данных0644. При ошибке временное дерево удаляется, существующий
+результат не заменяется. Получение не активирует службы и не собирает исходники.
+
+Внутренний `skvoz-network-artifact` используется только самим поставщиком для
+формирования manifest и подготовки bundle. Он не входит в релизный архив,
+не загружается и не запускается продуктами. Собственный parser tar и отдельный
+исполняемый установщик потребителю не нужны. Опубликованные native archives
+сохраняют свои реальные hashes; обновление выбранного выпуска выполняется явно.
 
 ## GitHub Releases и обновление Core
 
@@ -112,7 +137,11 @@ timeout --kill-after=5s 300s target/release/core-release fetch \
 export SKVOZ_CORE_ARTIFACT=/path/to/new-verified-core
 ```
 
-`fetch` дополнительно сверяет SHA всего архива и descriptor с pin, а SDK — с
+В ordinary CI используется прямой путь: `curl` по URL из pin, `sha256sum`
+и `tar` для `artifact.json`/`lib/libskvoz_core.so`. `build.rs` и binding сохраняют
+проверки interface/manifest и bytes готовой библиотеки при связывании.
+
+Отдельный `fetch` для локальной диагностики дополнительно сверяет descriptor с pin, а SDK — с
 локальным `vendor/skvoz-core`. Он не изменяет pin и не перезаписывает выходной
 каталог. Отсутствующий asset, несовпадение SHA/identity/profile или недоступный
 upstream завершают команду ошибкой; сборки Core из исходников здесь нет.
@@ -150,9 +179,16 @@ inputs сборки квалифицированных binaries, включая 
 `scripts/export-source-sdk.sh desktop-host OUTPUT` создаёт contracts/client/native
 и точную копию чистых Core contracts; standalone manifests сохраняют edition2024,
 Rust1.92, версии и внешние pins. Ни engine, ни NATS, ни Core binary binding в
-этом SDK нет. `portable-supplier` экспортирует полный Network source checkout
-с patched NATS и Core binding/TLS/contracts для явной Android native supplier
-сборки; исходники engine Core не включаются. SDK содержит `sdk.json`, текущую документацию, лицензии, supplier lock и
+этом SDK нет. `portable-supplier` содержит только production Cargo closure явной
+Android native supplier сборки: Network library/runtime, contracts/native,
+patched NATS и полный проверяемый Core binding/TLS/contracts SDK с исходным
+inventory. Включены `build.rs`, только Android Core pins/descriptors, лицензии и
+supplier lock. Linux CLI, client/FFI/helper, qualification, tests, workflows и
+release/deployment инструменты в этот профиль не входят. Desktop профиль также
+не содержит тестов или test targets поставщика. Внутренние `cfg(test)` модули
+production source сохраняются без изменений; собственные тесты поставщик
+запускает в своём checkout. Исходники engine Core не включаются.
+SDK содержит `sdk.json`, краткое руководство, лицензии, supplier lock и
 `source-inputs.sha256`; archive SHA фиксируется снаружи.
 До owning compilation SDK является source candidate. Обычная APK сборка
 использует готовые JNI outputs.
@@ -176,8 +212,8 @@ Cross-compilation/ELF packaging не подтверждают Android loader/JNI
 их проверяет Android supplier. Обычная APK сборка включает готовые JNI/Core
 libraries, не запускает native compiler или Core source fallback.
 
-Новые source SDK archives нормализуют regular source files в0644, executable
-scripts в0755. Source inventory проверяет содержимое; это не native bundle
+Новые source SDK archives содержат только regular source files с mode0644;
+executable scripts в профили не входят. Source inventory проверяет содержимое; это не native bundle
 manifest и не квалификация executable trust. Уже выданные immutable SDK не
 перепаковываются из-за изменения exporter metadata.
 

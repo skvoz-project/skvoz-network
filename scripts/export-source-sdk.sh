@@ -60,7 +60,7 @@ README
   portable-supplier)
     git -C "$root" ls-files --cached --others --exclude-standard -z > "$staging/inputs"
     tar -C "$root" --null --no-recursion -T "$staging/inputs" -cf "$staging/source.tar"
-    tar -C "$sdk" -xf "$staging/source.tar"
+    tar -C "$sdk" --no-same-owner -xf "$staging/source.tar"
     ;;
   *) echo 'unsupported source SDK profile' >&2; exit 2 ;;
 esac

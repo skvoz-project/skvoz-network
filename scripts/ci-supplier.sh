@@ -20,20 +20,13 @@ trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 container() {
   timeout --signal=TERM --kill-after=10s 1200s docker run --name "$name" \
-    --cgroupns=private --cpus=2 --memory=3g --memory-swap=3g --pids-limit=256 \
     --ulimit core=0 --cap-drop=ALL --security-opt=no-new-privileges:true \
     --mount "type=bind,src=$root,dst=/src,readonly" \
     --mount "type=bind,src=$NETWORK_OUTPUT,dst=/out" \
     --env CARGO_HOME=/out/cargo --env CARGO_TARGET_DIR=/out/target \
-    --env CARGO_BUILD_JOBS=1 --env CARGO_INCREMENTAL=0 --env GITHUB_SHA \
+    --env CARGO_INCREMENTAL=0 --env GITHUB_SHA \
     --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/src \
-    --workdir /src "$image" sh -eu -c '
-      test "$(cat /sys/fs/cgroup/cpu.max)" = "200000 100000"
-      test "$(cat /sys/fs/cgroup/memory.max)" = 3221225472
-      test "$(cat /sys/fs/cgroup/memory.swap.max)" = 0
-      test "$(cat /sys/fs/cgroup/pids.max)" = 256
-      exec sh -eu -c "$1"
-    ' supplier "$1"
+    --workdir /src "$image" sh -eu -c "$1"
   timeout --kill-after=2s 20s docker rm "$name" >/dev/null
 }
 container '

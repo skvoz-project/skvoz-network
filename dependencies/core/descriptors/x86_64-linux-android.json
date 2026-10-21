@@ -16,7 +16,6 @@
     ],
     "build_environment": {
       "AR_x86_64_linux_android": "/out/android-tools/sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar",
-      "CARGO_BUILD_JOBS": "1",
       "CARGO_INCREMENTAL": "0",
       "CARGO_PROFILE_RELEASE_DEBUG": "0",
       "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER": "/out/android-tools/sdk/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android31-clang",
@@ -61,7 +60,7 @@
     "manager_peer": 1024
   },
   "linker": "Android (16134705, +pgo, +bolt, +lto, +mlgo, based on r574158c) clang version 21.0.0 (https://android.googlesource.com/toolchain/llvm-project 9f872551d3c681d06fd303b36f16ed5c274735eb)\nTarget: x86_64-unknown-linux-android31\nThread model: posix\nInstalledDir: /out/android-tools/ndk/android-ndk-r30/toolchains/llvm/prebuilt/linux-x86_64/bin\n",
-  "lock_sha256": "81d8b14a98fdd048d52bee87fe16cb44c31a1b7f6d7ac5cf912c12a084a41ba7",
+  "lock_sha256": "e7a87f917c816124301d3372ff50358fb19951009bc4c81ac99dde9751cd6c5b",
   "owning_repository": "https://github.com/skvoz-project/skvoz-core",
   "profile": "release",
   "qualification": "candidate; see owning verification evidence",
@@ -78,10 +77,10 @@
   "soname": null,
   "source": {
     "repository": "https://github.com/skvoz-project/skvoz-core",
-    "revision": "a1b4bf8979869a7f681067ccb1e9326a58bf5c08",
-    "tree_sha256": "d0c0afd5d363b8f1dbd01931abf18569cb0b317e2e41ce33e1198f4a133224db"
+    "revision": "20235b13e3664a1f34ab24270482b860dd54fe37",
+    "tree_sha256": "703582d95046241254033dba54f6d0bbc9f13a6c4797ca2c654be59ec1751172"
   },
-  "source_inputs_sha256": "d0c0afd5d363b8f1dbd01931abf18569cb0b317e2e41ce33e1198f4a133224db",
+  "source_inputs_sha256": "703582d95046241254033dba54f6d0bbc9f13a6c4797ca2c654be59ec1751172",
   "target": "x86_64-linux-android",
   "target_cpu": "Rust target default; no target-cpu override",
   "version": "5.0.0"

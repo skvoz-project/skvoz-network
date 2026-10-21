@@ -75,9 +75,10 @@ executables0755/данных0644. При ошибке временное дер�
 Workflow `Network` на `main` и при ручном запуске получает закреплённый Linux
 архив Core и собирает runtime/helper в Rust1.92.0 / Debian Bookworm. Pull request
 выполняет ту же проверку и сборку с `contents: read`; публикация доступна только
-отдельному job доверенного `main`. Docker ограничен 2CPU, 3GiB RAM, без swap,
-256 PID; каждый контейнер имеет deadline и проверку удаления. Профиль требует
-GLIBC не новее2.34 для Core, runtime и helper.
+отдельному job доверенного `main`. Сборка использует ресурсы GitHub runner;
+каждый контейнер имеет deadline и проверку удаления. Локальные CPU/RAM/swap/PID/I/O
+ограничения задаёт отдельное окружение проверки, они не являются условием CI.
+Профиль требует GLIBC не новее2.34 для Core, runtime и helper.
 
 Выпуск имеет неизменяемый тег `network-v0.7.0-<полный40SHA>` owning commit и
 четыре файла:

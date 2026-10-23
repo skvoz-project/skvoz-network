@@ -9,40 +9,74 @@ permissions:
 concurrency:
   group: network-${{ github.ref }}
   cancel-in-progress: false
+defaults:
+  run:
+    shell: sh -eu {0}
 jobs:
-  supplier:
+  sdk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build Linux supplier from pinned Core release
+      - name: Test and export the independent source SDKs
         env:
-          NETWORK_OUTPUT: ${{ runner.temp }}/network-output
-          GH_TOKEN: ${{ github.token }}
-        run: scripts/ci-supplier.sh
+          TARGET: sdk-artifacts
+        run: docker/local_build.sh "$RUNNER_TEMP/network-sdks"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: network-release
-          path: ${{ runner.temp }}/network-output/release/
+          name: network-sdks
+          path: ${{ runner.temp }}/network-sdks/*.tar.gz
+          if-no-files-found: error
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and check the Linux candidate
+        env:
+          TARGET: linux-artifacts
+        run: docker/local_build.sh "$RUNNER_TEMP/network-linux"
+      - name: Execute real kernel/helper/IP tests
+        working-directory: src
+        env:
+          SKVOZ_TEST_READY_NATIVE_ARCHIVE: ${{ runner.temp }}/network-linux/skvoz-network-0.7.0-x86_64-unknown-linux-gnu.tar.gz
+        run: cargo test -p skvoz-network-helper --features fixture --test kernel_fixture --release --locked -- --ignored --test-threads=1 --nocapture
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: network-linux
+          path: ${{ runner.temp }}/network-linux/*.tar.gz
           if-no-files-found: error
   publish:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: supplier
+    if: github.repository == 'skvoz-project/skvoz-network' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [sdk, linux]
     permissions:
       contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: network-release
+          pattern: network-*
+          merge-multiple: true
           path: ${{ runner.temp }}/network-release
-      - name: Publish immutable owning-commit release
+      - name: Publish the three already tested immutable outputs
+        working-directory: ${{ runner.temp }}/network-release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/publish-release.sh "$RUNNER_TEMP/network-release"
+        run: |
+          sha256sum ./*.tar.gz | sed 's|  ./|  |' > SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
+          tag=network-v0.7.0-$GITHUB_SHA
+          # Atomic ref creation rejects an existing or concurrently created tag.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA" >/dev/null
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Network 0.7.0 ($GITHUB_SHA)" --notes 'Linux runtime/helper и исходные SDK; SHA256SUMS фиксирует каждый архив.' \
+            --latest=false SHA256SUMS \
+            skvoz-network-0.7.0-x86_64-unknown-linux-gnu.tar.gz \
+            skvoz-network-sdk-0.7.0-desktop-host.tar.gz \
+            skvoz-network-sdk-0.7.0-portable-supplier.tar.gz

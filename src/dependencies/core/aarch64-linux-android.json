@@ -1,0 +1,30 @@
+{
+  "abi": 1,
+  "android": {
+    "android_abi": "arm64-v8a",
+    "elf_machine": "AArch64",
+    "minimum_api": 31,
+    "ndk_revision": "30.0.16248370",
+    "page_alignment": 16384
+  },
+  "artifact": {
+    "sha256": "cedc81acff6f838fced23b97e0e8ce9a54e423f213ad4f9d64ac7cc06e2aec75",
+    "url": "https://github.com/skvoz-project/skvoz-core/releases/download/core-v5.0.0-d04da14bb4d1d11d7d7863056dad2367d7955bf8/skvoz-core-5.0.0-aarch64-linux-android.tar.gz"
+  },
+  "artifact_id": "5.0.0-abi1-aarch64-linux-android-b0aa9ce763057bbd03a68b7bfd061681d13b2f08c65aa633b314a202de1c8aa3-430e6e799fba6af01d6b410e8d50742fbc337cb424e45ece1f7b063969ea7691",
+  "artifact_manifest_sha256": "a025a3590927d807bcb13af2adb921029b4c5ceeb46660b31f09c2b9f000ceb7",
+  "component": "skvoz-core",
+  "descriptor": "dependencies/core/descriptors/aarch64-linux-android.json",
+  "kind": "shared-library",
+  "library": "lib/libskvoz_core.so",
+  "manifest": "artifact.json",
+  "release_tag": "core-v5.0.0-d04da14bb4d1d11d7d7863056dad2367d7955bf8",
+  "schema": 1,
+  "sdk_manifest_sha256": "430e6e799fba6af01d6b410e8d50742fbc337cb424e45ece1f7b063969ea7691",
+  "sha256": "b0aa9ce763057bbd03a68b7bfd061681d13b2f08c65aa633b314a202de1c8aa3",
+  "source_inputs_sha256": "328a89f21efcea1672d4b283df726d73c38ea3aa9f27f24804ce214fa25cab3c",
+  "source_revision": "d04da14bb4d1d11d7d7863056dad2367d7955bf8",
+  "supplier": "https://github.com/skvoz-project/skvoz-core",
+  "target": "aarch64-linux-android",
+  "version": "5.0.0"
+}

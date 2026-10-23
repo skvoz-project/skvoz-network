@@ -1,0 +1,10 @@
+**/target/
+**/temp/
+**/.knowledge/
+**/AGENTS.md
+.agents/
+.codex/
+.aws/
+.idea/
+*.log
+*.tmp

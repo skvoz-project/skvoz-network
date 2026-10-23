@@ -34,9 +34,9 @@ IP-сессия согласует CONFIG, открывает все канал�
 число записей. Kernel socket buffers и память системного resolver учитываются
 отдельно при квалификации.
 
-Граница Linux/Android FD/TUN и Linux process/create/SCM_RIGHTS находится в [native/](native/README.md),
-привилегированные операции — в [helper/](helper/README.md), тонкая C ABI1 —
-в [ffi/](ffi/README.md). Основная библиотека сохраняет запрет `unsafe`.
+Граница Linux/Android FD/TUN и Linux process/create/SCM_RIGHTS находится в [native/](src/native/README.md),
+привилегированные операции — в [helper/](src/helper/README.md), тонкая C ABI1 —
+в [ffi/](src/ffi/README.md). Основная библиотека сохраняет запрет `unsafe`.
 FFI не создаёт второй engine или собственную очередь событий. Недостаточный
 буфер сохраняет ту же authoritative запись и FD до успешного получения.
 
@@ -55,20 +55,21 @@ Auth Callout. Сохраняются проверка TLS и общий тайм
 Desktop/portable SDK и `SHA256SUMS` под `network-v0.7.0-<полный40SHA>`.
 Server, Client Service и Desktop получают готовый pinned native archive в своих
 workflows; Android native supplier использует portable SDK и отдельные Core
-targets. PR проверяет сборку без публикации. Первый выпуск требует опубликованного
-Core и явного обновления pins; порядок и команда описаны в
+targets. PR выполняет те же проверки. Независимые SDK и Linux outputs объединяются
+перед выпуском после unit/process/ABI, TLS/NATS и kernel/IP checks; порядок и команда описаны в
 [руководстве выпусков](docs/artifacts.md#github-releases-и-обновление-core).
 Локальные команды ниже нужны для разработки и дополнительной проверки supplier.
 
 Для явной supplier сборки сначала подготовьте закреплённую Core library по
 [описанию артефактов](docs/artifacts.md#явная-сборка-поставщика). Source SDK уже
-включён в `vendor/skvoz-core`; engine Core здесь отсутствует. Каталог готового
+включён в `src/vendor/skvoz-core`; engine Core здесь отсутствует. Каталог готового
 артефакта обязан содержать совпадающие с target pin `artifact.json` и `lib/`.
 Отсутствие или несовпадение артефакта завершает сборку ошибкой.
 
-Из корня репозитория:
+Из языкового workspace `src/`:
 
 ```sh
+cd src
 export SKVOZ_CORE_ARTIFACT=/path/to/verified-core-artifact
 cargo build -p skvoz-network --features linux-runtime --locked
 cargo test -p skvoz-network --features linux-runtime --locked
@@ -91,7 +92,19 @@ Launcher передаёт назначенные FD исключительно �
 Детерминированные checks и отдельные реальные TLS/NATS/TUN cases описаны в
 [руководстве проверки](docs/verification.md). Они имеют разные пределы доказательства.
 
-Репозиторий поставляет [строгие contracts](contracts/README.md),
-[host enrollment SDK](client/README.md), [готовые Linux outputs](docs/artifacts.md)
+Репозиторий поставляет [строгие contracts](src/contracts/README.md),
+[host enrollment SDK](src/client/README.md), [готовые Linux outputs](docs/artifacts.md)
 и [исходные SDK](docs/artifacts.md#исходные-sdk). Обычные Server/Desktop/Client Service packaging
 используют pinned archive; supplier Cargo build является отдельным действием.
+
+Языковой workspace полностью находится в `src/`: восемь packages разделяют
+чистые contracts, runtime, native, helper, FFI, host client, инструменты упаковки
+и fixture. Общие `Cargo.toml`, `Cargo.lock` и `rust-toolchain.toml` закрепляют
+сборку. Рецепты находятся в `docker/`; CI вызывает Dockerfile targets и отдельный owning Rust integration test.
+
+Локальная сборка: `docker/local_build.sh /path/to/new-network-build` выдаёт три
+архива и `SHA256SUMS`. Полная проверка затем запускает один owning Cargo test
+с готовым Linux archive, как показано в [руководстве проверки](docs/verification.md).
+Fixture сама готовит необходимые test inputs и OS image, затем выполняет настоящие
+TUN/helper/IP assertions и cleanup. Для полного запуска нужны Ubuntu24.04,
+Rust1.92.0, C compiler, curl, tar, Docker Buildx и `/dev/net/tun`.

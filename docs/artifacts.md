@@ -25,8 +25,9 @@ Core dependency содержит `component`, `version`, `abi`, `sha256` гот�
 
 `source.tree_sha256` — SHA256 файла `source-inputs.sha256`: отсортированные
 строки `SHA256<TAB>относительный-путь<LF>` для manifests, lock, Rust source,
-source SDK, installation resources, supplier scripts, `.cargo/`, owning workflows,
-rust-toolchain и `native-profile.json` с точными toolchain/flags/profile inputs.
+source SDK, installation resources, Rust tools, Docker recipes, owning workflows,
+`.dockerignore`, `src/rust-toolchain.toml` и `src/native-profile.json`. Generated
+`src/target/` не входит в inventory; manifests учитываются один раз.
 Поставщик выполняет inventory в owning Git checkout: учитываются cached и
 untracked public inputs, существующие Git ignores исключают private material. `source.repository`
 указывает Network, `source.revision` может быть null только у локального
@@ -72,12 +73,22 @@ executables0755/данных0644. При ошибке временное дер�
 
 ## GitHub Releases и обновление Core
 
-Workflow `Network` на `main` и при ручном запуске получает закреплённый Linux
-архив Core и собирает runtime/helper в Rust1.92.0 / Debian Bookworm. Pull request
-выполняет ту же проверку и сборку с `contents: read`; публикация доступна только
-отдельному job доверенного `main`. Сборка использует ресурсы GitHub runner;
-каждый контейнер имеет deadline и проверку удаления. Локальные CPU/RAM/swap/PID/I/O
-ограничения задаёт отдельное окружение проверки, они не являются условием CI.
+Workflow `Network` имеет независимые jobs SDK и Linux. Оба вызывают прямой
+`docker/local_build.sh` с нужным Dockerfile `TARGET`. Target `sdk-artifacts` выполняет owning
+Cargo tooling tests и export обоих исходных SDK; Core binary, NATS и kernel ему
+не нужны. Portable manifest исключает test-only dependencies; Cargo нормализует
+его lock, а consumer metadata `--locked --offline` проверяет неизменность lock.
+
+Основной Dockerfile компилирует runtime/helper в закреплённом Bookworm profile,
+затем `ordinary-checks` в Ubuntu24.04 выполняет Cargo tests/fmt/Clippy, включая
+настоящие TLS/NATS/FFI, ready archive и installed runtime. `linux-artifacts`
+экспортирует тот же готовый archive только из успешного check target.
+`test-environment` готовит Ubuntu OS tools. За пределами `docker build` узкий
+owning Rust Testcontainers test сама готовит kernel test executables и OS image,
+затем выполняет полную TUN/helper/IP topology и cleanup. Linux job передаёт архив
+только после её успеха. Publication ждёт оба jobs и использует3 готовых архива без
+rebuild. Локальный `docker/local_build.sh /path/to/output` выдаёт aggregate outputs
+и SHA256SUMS; отдельный Cargo kernel gate описан в [руководстве проверки](verification.md).
 Профиль требует GLIBC не новее2.34 для Core, runtime и helper.
 
 Выпуск имеет неизменяемый тег `network-v0.7.0-<полный40SHA>` owning commit и
@@ -92,31 +103,22 @@ Workflow `Network` на `main` и при ручном запуске получ�
 `latest` не используются. Native manifest и оба `sdk.json` фиксируют реальный
 owning commit; грязный checkout при `GITHUB_SHA` отклоняется. Локальный кандидат
 без чистого owning commit сохраняет `revision:null`. Новые outputs имеют свои
-manifest hashes; исторические hashes и сведения о квалификации в
-`native-profile.json` описывают прежние проверенные bytes и не квалифицируют
-новую CI сборку автоматически.
+manifest hashes; исторические hashes и сведения о квалификации описывают только эти bytes; новый manifest фиксирует новый выпуск.
 
-Первый запуск требует реально опубликованного выпуска Core. Текущие локально
-проверенные pins остаются действительными для своих bytes; до первого явного
-обновления они не содержат выдуманного release URL/SHA архива и CI останавливается
-с указанием bootstrap prerequisite. После выпуска Core выполните из корня
-Network checkout; перед обновлением сохраните текущие изменения для review:
+Обновление Core — явная supplier операция. Из языкового workspace:
 
 ```sh
+cd src
 cargo build --release --locked -p skvoz-network-artifact
-# По умолчанию используется настроенный gh; private repository требует доступа.
-timeout --kill-after=5s 600s target/release/core-release refresh \
+timeout --kill-after=5s 600s target/release/core-release --public refresh \
   "core-v5.0.0-<полный40SHA>"
 git diff -- dependencies/core vendor/skvoz-core
 ```
 
-Для публичного Core без авторизации добавьте `--public` перед `refresh` или
-`fetch`: `core-release --public refresh "core-v5.0.0-<полный40SHA>"`. Этот режим
-использует анонимные HTTPS-запросы `curl` к GitHub API и release assets. Ошибки
-авторизованного `gh` не включают его автоматически; настройки и credentials
-не меняются. Первый refresh допускается до первого commit Network: revision
-будущего Network release определяется отдельно при сборке supplier из чистого
-owning commit.
+По умолчанию используется настроенный `gh`. Для публичного Core режим `--public`
+использует анонимный HTTPS через `curl`; ошибки `gh` не включают его автоматически.
+Настройки и credentials не меняются. Команда запускается из `src/`, где находятся
+pins и vendored SDK.
 
 Команда принимает только точный тег. Она проверяет его lightweight ref против
 owning commit через GitHub API, получает `SHA256SUMS` и все три Core archives,
@@ -138,12 +140,12 @@ timeout --kill-after=5s 300s target/release/core-release fetch \
 export SKVOZ_CORE_ARTIFACT=/path/to/new-verified-core
 ```
 
-В ordinary CI используется прямой путь: `curl` по URL из pin, `sha256sum`
-и `tar` для `artifact.json`/`lib/libskvoz_core.so`. `build.rs` и binding сохраняют
+В ordinary CI owning `core-release --public fetch` получает точный архив через
+`curl`, проверяет SHA256 и извлекает его стандартным `tar`. `src/network/build.rs` и binding сохраняют
 проверки interface/manifest и bytes готовой библиотеки при связывании.
 
 Отдельный `fetch` для локальной диагностики дополнительно сверяет descriptor с pin, а SDK — с
-локальным `vendor/skvoz-core`. Он не изменяет pin и не перезаписывает выходной
+локальным `src/vendor/skvoz-core`. Он не изменяет pin и не перезаписывает выходной
 каталог. Отсутствующий asset, несовпадение SHA/identity/profile или недоступный
 upstream завершают команду ошибкой; сборки Core из исходников здесь нет.
 Для следующего выпуска повторите `refresh` с явно выбранным новым тегом и
@@ -152,39 +154,40 @@ upstream завершают команду ошибкой; сборки Core и�
 ## Явная сборка поставщика
 
 Source SDK Core готовится отдельно из pinned supplier bundle в
-`vendor/skvoz-core`; готовая библиотека имеет собственный проверенный digest.
-`dependencies/core/<target>.json` закрепляет artifact ID, library/source/SDK hashes;
-`build.rs` сверяет выбранный manifest, а Cargo binding проверяет реальные library
+`src/vendor/skvoz-core`; готовая библиотека имеет собственный проверенный digest.
+`src/dependencies/core/<target>.json` закрепляет artifact ID, library/source/SDK hashes;
+`src/network/build.rs` сверяет выбранный manifest, а Cargo binding проверяет реальные library
 bytes и связывает их по явному `SKVOZ_CORE_ARTIFACT`. Target без готового pin
 завершается ошибкой. Обычный продукт не
 запускает команды ниже и не содержит engine Core.
 
 ```sh
+cd src
 export SKVOZ_CORE_ARTIFACT=/path/to/verified-core-artifact
 cargo build --release --locked -p skvoz-network --features linux-runtime
 cargo build --release --locked -p skvoz-network-helper -p skvoz-network-artifact
-scripts/bundle-native.sh target/release/skvoz-network-artifact \
+tools/bundle-native.sh target/release/skvoz-network-artifact \
   target/release /path/to/verified/libskvoz_core.so /path/to/network-native.tar.gz
 ```
 
-Сборка выполняется только в согласованном подготовленном окружении с реальными
-resource caps и deadline. `bundle-native.sh` ничего не компилирует: проверяет
+Локальный `docker/local_build.sh` экспортирует те же build/check targets,
+что workflow, с обычным Docker Buildx. `bundle-native.sh` ничего не компилирует: проверяет
 version/ELF/RPATH и упаковывает уже собранные outputs. Публикация и установка
-артефактов являются отдельными действиями. `native-profile.json` хранит фактические
-inputs сборки квалифицированных binaries, включая использованный Core SDK.
+артефактов являются отдельными действиями. `src/native-profile.json` хранит закреплённые
+параметры сборки; текущие hashes готовых binaries находятся в manifest выпуска.
 Текущий исходный SDK отдельно закрепляет свою зависимость в `sdk.json`;
 повторная упаковка прежних native bytes не изменяет историю их сборки.
 
 ## Исходные SDK
 
-`scripts/export-source-sdk.sh desktop-host OUTPUT` создаёт contracts/client/native
+`src/target/release/export-sdk <checkout> desktop-host OUTPUT` создаёт contracts/client/native
 и точную копию чистых Core contracts; standalone manifests сохраняют edition2024,
 Rust1.92, версии и внешние pins. Ни engine, ни NATS, ни Core binary binding в
 этом SDK нет. `portable-supplier` содержит только production Cargo closure явной
 Android native supplier сборки: Network library/runtime, contracts/native,
 patched NATS и полный проверяемый Core binding/TLS/contracts SDK с исходным
 inventory. Включены `build.rs`, только Android Core pins/descriptors, лицензии и
-supplier lock. Linux CLI, client/FFI/helper, qualification, tests, workflows и
+supplier lock. Linux CLI, client/FFI/helper, fixture, integration tests, workflows и
 release/deployment инструменты в этот профиль не входят. Desktop профиль также
 не содержит тестов или test targets поставщика. Внутренние `cfg(test)` модули
 production source сохраняются без изменений; собственные тесты поставщик
@@ -201,8 +204,8 @@ executor выделяется один раз на процесс; каждый 
 без отдельного глобального ledger. Принятые default budgets не увеличиваются.
 
 Android native supplier использует отдельные Core pins в
-`dependencies/core/<Rust-target>.json` и точные supplier descriptors в
-`dependencies/core/descriptors/`. Поддерживаются `aarch64-linux-android`
+`src/dependencies/core/<Rust-target>.json` и точные supplier descriptors в
+`src/dependencies/core/descriptors/`. Поддерживаются `aarch64-linux-android`
 (`arm64-v8a`) и `x86_64-linux-android` (`x86_64`): minimum API31, NDK revision
 30.0.16248370, ELF LOAD alignment16384. Каждый target получает собственные
 artifact identity/library hash/descriptor hash; общий Core source SDK сохраняется

@@ -8,7 +8,7 @@ network 6, локальный API — 1. Это текущий контракт 
 
 ## Границы и поставка
 
-Библиотека, `skvoz-network-runtime` и [FFI ABI 1](../ffi/README.md)
+Библиотека, `skvoz-network-runtime` и [FFI ABI 1](../src/ffi/README.md)
 используют один actor и `NetworkEngine`. Ruby управляет серверными процессами,
 пользователями и сертификатами; GTK управляет клиентским соединением и окном.
 Прикладные байты и IP-пакеты проходят через Rust I/O, без сериализации в
@@ -17,9 +17,9 @@ network 6, локальный API — 1. Это текущий контракт 
 обычный NATS entry переносит сообщения через native leaf без payload Core/helper.
 [Самостоятельный демон Core / IPC 1](https://github.com/skvoz-project/skvoz-core/blob/main/docs/daemon-ipc.md) сохраняет отдельное назначение.
 
-Общие Linux/Android FD/TUN и Linux process/create/`SCM_RIGHTS` вынесены в [native boundary](../native/README.md).
+Общие Linux/Android FD/TUN и Linux process/create/`SCM_RIGHTS` вынесены в [native boundary](../src/native/README.md).
 Основная библиотека и Core запрещают `unsafe`. Узкий
-[helper](../helper/README.md) создаёт TUN и собственные маршруты,
+[helper](../src/helper/README.md) создаёт TUN и собственные маршруты,
 правила firewall и настройки DNS. Он не принимает shell, скрипты, произвольные
 команды или пути для удаления.
 
@@ -162,7 +162,7 @@ FFI получает тот же JSON без Unix-фрейма. Borrowed вхо�
 с CLOEXEC; выходной FD принадлежит caller. Недостаточный буфер оставляет точное
 сообщение и его FD в очереди; destroy закрывает недоставленные FD. Handle имеет
 поколение; старый handle отклоняется. Полный C-контракт —
-[`skvoz_network.h`](../ffi/include/skvoz_network.h).
+[`skvoz_network.h`](../src/ffi/include/skvoz_network.h).
 
 STOP_IP для завершённой собственной сессии идемпотентен в истории последних
 128 завершений текущего процесса. Более старый handle становится неизвестным;

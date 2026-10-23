@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "target": "x86_64-unknown-linux-gnu",
+  "profile": "linux-gnu-bookworm",
+  "cargo_profile": "release",
+  "rustc": "rustc 1.92.0 (ded5c06cf 2025-12-08)",
+  "cargo": "cargo 1.92.0 (344c4567c 2025-10-21)",
+  "cpu": "x86-64",
+  "rustflags": [
+    "-C",
+    "link-arg=-Wl,-rpath,$ORIGIN/../lib"
+  ],
+  "release": {
+    "opt_level": 3,
+    "panic": "unwind",
+    "lto": false,
+    "codegen_units": 16
+  },
+  "runtime_dependencies": [
+    "ld-linux-x86-64.so.2",
+    "libc.so.6",
+    "libgcc_s.so.1",
+    "libm.so.6",
+    "libskvoz_core.so"
+  ]
+}

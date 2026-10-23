@@ -1,0 +1,40 @@
+[package]
+name = "skvoz-network-helper"
+version = "0.6.0"
+description = "Scoped Linux network setup for the shared SKVOZ runtime"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+fixture = ["dep:socket2"]
+
+[dependencies]
+skvoz-network-contracts = { path = "../contracts" }
+skvoz-network-native = { path = "../native" }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.151"
+getrandom = "=0.4.3"
+socket2 = { version = "=0.6.5", features = ["all"], optional = true }
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "fixture-kernel-client"
+path = "tests/actors/kernel_client.rs"
+required-features = ["fixture"]
+test = false
+
+[[bin]]
+name = "fixture-ip-topology"
+path = "tests/actors/ip_topology.rs"
+required-features = ["fixture"]
+test = false
+
+[dev-dependencies]
+skvoz-network-qualification = { path = "../qualification" }
+testcontainers = "=0.28.0"
+tokio = { version = "=1.53.1", features = ["rt-multi-thread", "macros", "time", "process", "io-util"] }
+futures-util = "=0.3.34"
